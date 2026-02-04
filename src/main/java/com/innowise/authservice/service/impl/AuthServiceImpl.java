@@ -9,6 +9,8 @@ import com.innowise.authservice.model.entity.UserCredentials;
 import com.innowise.authservice.repository.CredentialsRepository;
 import com.innowise.authservice.security.JwtService;
 import com.innowise.authservice.service.AuthService;
+import java.util.Optional;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -66,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
         .orElseThrow(() -> new BadCredentialsException("Invalid login or password"));
 
     if (!credentials.isActive()) {
-      throw new IllegalArgumentException("User is inactive");
+      throw new DisabledException("User is inactive");
     }
 
     return new TokenResponse(
@@ -104,8 +106,11 @@ public class AuthServiceImpl implements AuthService {
         return new ValidateTokenResponse(false, null, null);
       }
 
-      UserCredentials credentials = repository.findByUserId(userId)
-          .orElseThrow();
+      Optional<UserCredentials> credentialsOpt = repository.findByUserId(userId);
+      if (credentialsOpt.isEmpty()) {
+        return new ValidateTokenResponse(false, null, null);
+      }
+      UserCredentials credentials = credentialsOpt.get();
 
       if (!credentials.isActive()) {
         return new ValidateTokenResponse(false, null, null);
