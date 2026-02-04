@@ -4,6 +4,7 @@ import com.innowise.authservice.model.Role;
 
 public class AuthRequest {
 
+  private Long userId;
   private String email;
   private String password;
   private Role role;
@@ -11,10 +12,12 @@ public class AuthRequest {
   public AuthRequest() {
   }
 
-  public AuthRequest(String email, String password, Role role) {
-    this.email = email;
-    this.password = password;
-    this.role = role;
+  public Long getUserId() {
+    return userId;
+  }
+
+  public void setUserId(Long userId) {
+    this.userId = userId;
   }
 
   public String getEmail() {

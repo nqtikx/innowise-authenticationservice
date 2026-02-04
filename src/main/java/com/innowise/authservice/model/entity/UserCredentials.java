@@ -1,76 +1,72 @@
 package com.innowise.authservice.model.entity;
 
 import com.innowise.authservice.model.Role;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.util.Objects;
-import java.util.UUID;
 
 @Entity
 @Table(name = "user_credentials")
-public class UserCredentials {
+public class UserCredentials extends AuditEntity {
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  @Column(name = "id")
-  private UUID id;
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-  @Column(name = "email", unique = true, nullable = false)
+  @Column(name = "user_id", nullable = false)
+  private Long userId;
+
+  @Column(name = "email", nullable = false, unique = true, length = 75)
   private String email;
 
-  @Column(name = "password", nullable = false)
-  private String password;
+  @Column(name = "password_hash", nullable = false, length = 100)
+  private String passwordHash;
 
   @Enumerated(EnumType.STRING)
-  @Column(name = "role", nullable = false)
+  @Column(name = "role", nullable = false, length = 20)
   private Role role;
 
-  public UserCredentials() {
+  @Column(name = "active", nullable = false)
+  private boolean active;
+
+  protected UserCredentials() {
   }
 
-  public UserCredentials(UUID id, String email, String password, Role role) {
-    this.id = id;
-    this.email = email;
-    this.password = password;
-    this.role = role;
+  public static UserCredentials create(Long userId, String email, String passwordHash, Role role, boolean active) {
+    UserCredentials credentials = new UserCredentials();
+    credentials.userId = userId;
+    credentials.email = email;
+    credentials.passwordHash = passwordHash;
+    credentials.role = role;
+    credentials.active = active;
+    return credentials;
   }
 
-  public UUID getId() {
+  public Long getId() {
     return id;
   }
 
-  public void setId(UUID id) {
-    this.id = id;
+  public Long getUserId() {
+    return userId;
   }
 
   public String getEmail() {
     return email;
   }
 
-  public void setEmail(String email) {
-    this.email = email;
-  }
-
-  public String getPassword() {
-    return password;
-  }
-
-  public void setPassword(String password) {
-    this.password = password;
+  public String getPasswordHash() {
+    return passwordHash;
   }
 
   public Role getRole() {
     return role;
   }
 
-  public void setRole(Role role) {
-    this.role = role;
+  public boolean isActive() {
+    return active;
+  }
+
+  public void setActive(boolean active) {
+    this.active = active;
   }
 
   @Override
@@ -88,14 +84,5 @@ public class UserCredentials {
   @Override
   public int hashCode() {
     return Objects.hash(id);
-  }
-
-  @Override
-  public String toString() {
-    return "UserCredentials{" +
-        "id=" + id +
-        ", email='" + email + '\'' +
-        ", role=" + role +
-        '}';
   }
 }

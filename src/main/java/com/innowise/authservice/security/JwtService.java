@@ -7,59 +7,63 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
+import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
 public class JwtService {
 
-  @Value("${jwt.secret}")
+  @Value("${security.jwt.secret}")
   private String secretKey;
 
-  @Value("${jwt.access-token-expiration}")
-  private long accessExpiration;
+  @Value("${security.jwt.access-ttl-minutes}")
+  private long accessTtlMinutes;
 
-  @Value("${jwt.refresh-token-expiration}")
-  private long refreshExpiration;
+  @Value("${security.jwt.refresh-ttl-days}")
+  private long refreshTtlDays;
 
-  public String extractUsername(String token) {
+  public String extractSubject(String token) {
     return extractClaim(token, Claims::getSubject);
   }
 
   public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-    final Claims claims = extractAllClaims(token);
+    Claims claims = extractAllClaims(token);
     return claimsResolver.apply(claims);
+  }
+
+  public Long extractUserId(String token) {
+    return Long.valueOf(extractSubject(token));
   }
 
   public String generateAccessToken(UserCredentials user) {
     Map<String, Object> claims = new HashMap<>();
-    claims.put("id", user.getId());
-    claims.put("role", user.getRole());
-    return buildToken(claims, user.getEmail(), accessExpiration);
+    claims.put("userId", user.getUserId());
+    claims.put("role", user.getRole().name());
+    return buildToken(claims, String.valueOf(user.getUserId()), Duration.ofMinutes(accessTtlMinutes).toMillis());
   }
 
   public String generateRefreshToken(UserCredentials user) {
-    return buildToken(new HashMap<>(), user.getEmail(), refreshExpiration);
+    return buildToken(new HashMap<>(), String.valueOf(user.getUserId()), Duration.ofDays(refreshTtlDays).toMillis());
   }
 
-  private String buildToken(Map<String, Object> extraClaims, String subject, long expiration) {
+  public boolean isTokenValid(String token, UserCredentials credentials) {
+    Long tokenUserId = extractUserId(token);
+    return tokenUserId.equals(credentials.getUserId()) && !isTokenExpired(token);
+  }
+
+  private String buildToken(Map<String, Object> extraClaims, String subject, long expirationMs) {
     return Jwts.builder()
         .setClaims(extraClaims)
         .setSubject(subject)
         .setIssuedAt(new Date(System.currentTimeMillis()))
-        .setExpiration(new Date(System.currentTimeMillis() + expiration))
+        .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
         .signWith(getSignInKey(), SignatureAlgorithm.HS256)
         .compact();
-  }
-
-  public boolean isTokenValid(String token, UserDetails userDetails) {
-    final String username = extractUsername(token);
-    return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
   }
 
   private boolean isTokenExpired(String token) {
