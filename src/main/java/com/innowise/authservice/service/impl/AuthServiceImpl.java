@@ -1,16 +1,19 @@
 package com.innowise.authservice.service.impl;
 
-import com.innowise.authservice.model.dto.AuthRequest;
+import com.innowise.authservice.model.Role;
+import com.innowise.authservice.model.dto.LoginRequest;
+import com.innowise.authservice.model.dto.RegisterRequest;
 import com.innowise.authservice.model.dto.TokenResponse;
+import com.innowise.authservice.model.dto.ValidateTokenResponse;
 import com.innowise.authservice.model.entity.UserCredentials;
 import com.innowise.authservice.repository.CredentialsRepository;
 import com.innowise.authservice.security.JwtService;
 import com.innowise.authservice.service.AuthService;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.BadCredentialsException;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -23,8 +26,7 @@ public class AuthServiceImpl implements AuthService {
   public AuthServiceImpl(
       CredentialsRepository repository,
       PasswordEncoder passwordEncoder,
-      JwtService jwtService,
-      AuthenticationManager authenticationManager
+      JwtService jwtService, AuthenticationManager authenticationManager
   ) {
     this.repository = repository;
     this.passwordEncoder = passwordEncoder;
@@ -33,12 +35,12 @@ public class AuthServiceImpl implements AuthService {
   }
 
   @Override
-  public TokenResponse register(AuthRequest request) {
+  public TokenResponse register(RegisterRequest request) {
     if (repository.existsByEmail(request.getEmail())) {
       throw new IllegalArgumentException("Email already exists");
     }
 
-    UserCredentials user = UserCredentials.create(
+    UserCredentials credentials = UserCredentials.create(
         request.getUserId(),
         request.getEmail(),
         passwordEncoder.encode(request.getPassword()),
@@ -46,54 +48,79 @@ public class AuthServiceImpl implements AuthService {
         true
     );
 
-    UserCredentials savedUser = repository.save(user);
+    UserCredentials saved = repository.save(credentials);
 
-    String accessToken = jwtService.generateAccessToken(savedUser);
-    String refreshToken = jwtService.generateRefreshToken(savedUser);
-
-    return new TokenResponse(accessToken, refreshToken);
+    return new TokenResponse(
+        jwtService.generateAccessToken(saved),
+        jwtService.generateRefreshToken(saved)
+    );
   }
 
   @Override
-  public TokenResponse login(AuthRequest request) {
+  public TokenResponse createToken(LoginRequest request) {
     authenticationManager.authenticate(
-        new UsernamePasswordAuthenticationToken(String.valueOf(request.getUserId()), request.getPassword())
+        new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
     );
 
-    UserCredentials user = repository.findByUserId(request.getUserId())
-        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    UserCredentials credentials = repository.findByEmail(request.getEmail())
+        .orElseThrow(() -> new BadCredentialsException("Invalid login or password"));
 
-    String accessToken = jwtService.generateAccessToken(user);
-    String refreshToken = jwtService.generateRefreshToken(user);
+    if (!credentials.isActive()) {
+      throw new IllegalArgumentException("User is inactive");
+    }
 
-    return new TokenResponse(accessToken, refreshToken);
+    return new TokenResponse(
+        jwtService.generateAccessToken(credentials),
+        jwtService.generateRefreshToken(credentials)
+    );
   }
 
   @Override
   public TokenResponse refreshToken(String refreshToken) {
+    if (!jwtService.isRefreshToken(refreshToken)) {
+      throw new IllegalArgumentException("Invalid token type");
+    }
     Long userId = jwtService.extractUserId(refreshToken);
 
-    UserCredentials user = repository.findByUserId(userId)
-        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    UserCredentials credentials = repository.findByUserId(userId)
+        .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-    if (!jwtService.isTokenValid(refreshToken, user)) {
+    if (!jwtService.isTokenValid(refreshToken, credentials)) {
       throw new IllegalArgumentException("Token is not valid");
     }
 
-    String accessToken = jwtService.generateAccessToken(user);
-
-    return new TokenResponse(accessToken, refreshToken);
+    return new TokenResponse(jwtService.generateAccessToken(credentials), refreshToken);
   }
 
   @Override
-  public boolean validateToken(String token) {
+  public ValidateTokenResponse validateToken(String token) {
     try {
+      if (!jwtService.isAccessToken(token)) {
+        return new ValidateTokenResponse(false, null, null);
+      }
+
       Long userId = jwtService.extractUserId(token);
-      UserCredentials user = repository.findByUserId(userId)
-          .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-      return jwtService.isTokenValid(token, user);
+      if (userId == null) {
+        return new ValidateTokenResponse(false, null, null);
+      }
+
+      UserCredentials credentials = repository.findByUserId(userId)
+          .orElseThrow();
+
+      if (!credentials.isActive()) {
+        return new ValidateTokenResponse(false, null, null);
+      }
+
+      if (!jwtService.isTokenValid(token, credentials)) {
+        return new ValidateTokenResponse(false, null, null);
+      }
+
+      String roleRaw = jwtService.extractRole(token);
+      Role role = roleRaw == null ? null : Role.valueOf(roleRaw);
+
+      return new ValidateTokenResponse(true, userId, role);
     } catch (Exception e) {
-      return false;
+      return new ValidateTokenResponse(false, null, null);
     }
   }
 }
