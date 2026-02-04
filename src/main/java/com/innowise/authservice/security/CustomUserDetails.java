@@ -15,19 +15,23 @@ public class CustomUserDetails implements UserDetails {
     this.userCredentials = userCredentials;
   }
 
+  public UserCredentials getCredentials() {
+    return userCredentials;
+  }
+
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    return Collections.singletonList(new SimpleGrantedAuthority(userCredentials.getRole().name()));
+    return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + userCredentials.getRole().name()));
   }
 
   @Override
   public String getPassword() {
-    return userCredentials.getPassword();
+    return userCredentials.getPasswordHash();
   }
 
   @Override
   public String getUsername() {
-    return userCredentials.getEmail();
+    return String.valueOf(userCredentials.getUserId());
   }
 
   @Override
@@ -47,6 +51,7 @@ public class CustomUserDetails implements UserDetails {
 
   @Override
   public boolean isEnabled() {
-    return true;
+    return userCredentials.isActive();
   }
+
 }

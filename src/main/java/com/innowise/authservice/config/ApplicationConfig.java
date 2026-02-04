@@ -24,9 +24,12 @@ public class ApplicationConfig {
 
   @Bean
   public UserDetailsService userDetailsService() {
-    return username -> repository.findByEmail(username)
-        .map(CustomUserDetails::new)
-        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    return username -> {
+      Long userId = Long.valueOf(username);
+      return repository.findByUserId(userId)
+          .map(CustomUserDetails::new)
+          .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    };
   }
 
   @Bean

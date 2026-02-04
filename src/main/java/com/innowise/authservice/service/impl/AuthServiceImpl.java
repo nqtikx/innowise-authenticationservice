@@ -20,10 +20,12 @@ public class AuthServiceImpl implements AuthService {
   private final JwtService jwtService;
   private final AuthenticationManager authenticationManager;
 
-  public AuthServiceImpl(CredentialsRepository repository,
+  public AuthServiceImpl(
+      CredentialsRepository repository,
       PasswordEncoder passwordEncoder,
       JwtService jwtService,
-      AuthenticationManager authenticationManager) {
+      AuthenticationManager authenticationManager
+  ) {
     this.repository = repository;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
@@ -33,13 +35,16 @@ public class AuthServiceImpl implements AuthService {
   @Override
   public TokenResponse register(AuthRequest request) {
     if (repository.existsByEmail(request.getEmail())) {
-      throw new RuntimeException("Email already exists");
+      throw new IllegalArgumentException("Email already exists");
     }
 
-    UserCredentials user = new UserCredentials();
-    user.setEmail(request.getEmail());
-    user.setPassword(passwordEncoder.encode(request.getPassword()));
-    user.setRole(request.getRole());
+    UserCredentials user = UserCredentials.create(
+        request.getUserId(),
+        request.getEmail(),
+        passwordEncoder.encode(request.getPassword()),
+        request.getRole(),
+        true
+    );
 
     UserCredentials savedUser = repository.save(user);
 
@@ -52,11 +57,11 @@ public class AuthServiceImpl implements AuthService {
   @Override
   public TokenResponse login(AuthRequest request) {
     authenticationManager.authenticate(
-        new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        new UsernamePasswordAuthenticationToken(String.valueOf(request.getUserId()), request.getPassword())
     );
 
-    UserCredentials user = repository.findByEmail(request.getEmail())
-        .orElseThrow(() -> new RuntimeException("User not found"));
+    UserCredentials user = repository.findByUserId(request.getUserId())
+        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
     String accessToken = jwtService.generateAccessToken(user);
     String refreshToken = jwtService.generateRefreshToken(user);
@@ -66,29 +71,27 @@ public class AuthServiceImpl implements AuthService {
 
   @Override
   public TokenResponse refreshToken(String refreshToken) {
-    String userEmail = jwtService.extractUsername(refreshToken);
-    if (userEmail == null) {
-      throw new RuntimeException("Invalid token");
-    }
+    Long userId = jwtService.extractUserId(refreshToken);
 
-    UserCredentials user = repository.findByEmail(userEmail)
+    UserCredentials user = repository.findByUserId(userId)
         .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-    if (!jwtService.isTokenValid(refreshToken, new com.innowise.authservice.security.CustomUserDetails(user))) {
-      throw new RuntimeException("Token is not valid");
+    if (!jwtService.isTokenValid(refreshToken, user)) {
+      throw new IllegalArgumentException("Token is not valid");
     }
 
     String accessToken = jwtService.generateAccessToken(user);
+
     return new TokenResponse(accessToken, refreshToken);
   }
 
   @Override
   public boolean validateToken(String token) {
     try {
-      String userEmail = jwtService.extractUsername(token);
-      UserCredentials user = repository.findByEmail(userEmail)
+      Long userId = jwtService.extractUserId(token);
+      UserCredentials user = repository.findByUserId(userId)
           .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-      return jwtService.isTokenValid(token, new com.innowise.authservice.security.CustomUserDetails(user));
+      return jwtService.isTokenValid(token, user);
     } catch (Exception e) {
       return false;
     }
