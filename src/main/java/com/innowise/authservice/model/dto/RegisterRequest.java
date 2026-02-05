@@ -1,8 +1,12 @@
 package com.innowise.authservice.model.dto;
 
 import com.innowise.authservice.model.Role;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RegisterRequest {
+
+  private static final Logger log = LoggerFactory.getLogger(RegisterRequest.class);
 
   private Long userId;
   private String email;
@@ -10,6 +14,7 @@ public class RegisterRequest {
   private Role role;
 
   public RegisterRequest() {
+    log.trace("Register initialized");
   }
 
   public Long getUserId() {
