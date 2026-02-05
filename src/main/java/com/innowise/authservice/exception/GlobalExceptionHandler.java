@@ -16,43 +16,41 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(BadCredentialsException.class)
   public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException e) {
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-        .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Invalid login or password"));
+    return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid login or password");
   }
 
   @ExceptionHandler(DisabledException.class)
   public ResponseEntity<ErrorResponse> handleDisabled(DisabledException e) {
-    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-        .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), "User is inactive"));
+    return buildResponse(HttpStatus.FORBIDDEN, "User is inactive");
   }
 
   @ExceptionHandler(UsernameNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleUserNotFound(UsernameNotFoundException e) {
-    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-        .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "User not found"));
+    return buildResponse(HttpStatus.NOT_FOUND, "User not found");
   }
 
   @ExceptionHandler(JwtException.class)
   public ResponseEntity<ErrorResponse> handleJwt(JwtException e) {
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-        .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Invalid token"));
+    return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid token");
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException e) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), e.getMessage()));
+    return buildResponse(HttpStatus.BAD_REQUEST, e.getMessage());
   }
 
   @ExceptionHandler(AuthenticationCredentialsNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleAuthNotFound(AuthenticationCredentialsNotFoundException e) {
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-        .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Unauthorized"));
+    return buildResponse(HttpStatus.UNAUTHORIZED, "Unauthorized");
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleGeneral(Exception e) {
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error"));
+    return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error");
+  }
+
+  private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String message) {
+    return ResponseEntity.status(status)
+        .body(new ErrorResponse(status.value(), message));
   }
 }
