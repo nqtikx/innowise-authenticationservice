@@ -2,14 +2,14 @@ package com.innowise.authservice.model.dto;
 
 import com.innowise.authservice.model.Role;
 
-public class AuthRequest {
+public class RegisterRequest {
 
   private Long userId;
   private String email;
   private String password;
   private Role role;
 
-  public AuthRequest() {
+  public RegisterRequest() {
   }
 
   public Long getUserId() {

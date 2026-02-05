@@ -14,7 +14,6 @@ public class CustomUserDetails implements UserDetails {
   public CustomUserDetails(UserCredentials userCredentials) {
     this.userCredentials = userCredentials;
   }
-
   public UserCredentials getCredentials() {
     return userCredentials;
   }
@@ -31,11 +30,11 @@ public class CustomUserDetails implements UserDetails {
 
   @Override
   public String getUsername() {
-    return String.valueOf(userCredentials.getUserId());
+    return userCredentials.getEmail();
   }
 
   @Override
-  public boolean isAccountNonExpired() {
+  public  boolean isAccountNonExpired() {
     return true;
   }
 
